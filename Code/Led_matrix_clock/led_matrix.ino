@@ -1,12 +1,17 @@
 #include "charNumber2matrix.h"
-#define INPUT_X_A D1
-#define INPUT_X_B D2
+#include <Wire.h>
+
+#define INPUT_X_A D0  //was D1
+#define INPUT_X_B D9 //RX
 #define INPUT_X_C D3
 #define INPUT_Y   D4
 #define SRCLK     D5 //shift register clock, first layer of registers
 #define RCLK      D6 //register clock,  second layer of registers and row SR clock
 #define OE        D7 // output enable, output is disabled when high
 #define CLR       D8
+
+#define SDA       D2
+#define SCL       D1
 
 #define WIDTH_A 7
 #define WIDTH_B 6
@@ -30,13 +35,13 @@ int clear_matrix[5][19] = {
                  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
                 };
 
-int test_matrix[5][19] = {
-                 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-                 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-                 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-                 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-                 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-                };
+// int test_matrix[5][19] = {
+//                  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+//                  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+//                  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+//                  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+//                  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+//                 };
 int display_matrix[5][19];          
 int (*p)[19];
 int *row;
@@ -46,6 +51,7 @@ void write2screen();
 void writeline2screen(int*);
 void init_y();
 void string2matrix(char []);
+String get_time();
 
 
 
@@ -59,6 +65,9 @@ void setup() {
   pinMode(RCLK, OUTPUT);
   pinMode(OE, OUTPUT);
   pinMode(CLR, OUTPUT);
+
+  Wire.begin(D1,D2); //
+  // Serial.begin(300);
 
   digitalWrite(OE, LOW); //Enable output of the 74HC595 sr
   digitalWrite(CLR, HIGH); //Disable clear
@@ -145,31 +154,65 @@ void string2matrix(char str[]){
   }
 }
 
+
+String get_time(){
+  //See data sheet for register configurations
+  // https://web.wpi.edu/Pubs/E-project/Available/E-project-010908-124414/unrestricted/DS3231-DS3231S.pdf
+  byte data[7];
+  String tid[7]; 
+  Wire.beginTransmission(0x68);
+  Wire.write(0x00);
+  Wire.endTransmission();
+  Wire.requestFrom(0x68,7);
+  for(int i = 0 ; i < 7 ; i++)
+    data[i]=Wire.read();
+
+  tid[0]=String((data[0]&0xF0)>>4)+String(data[0]&0x0F);
+  tid[1]=String((data[1]&0xF0)>>4)+String(data[1]&0x0F);
+  tid[2]=String((data[2]&0x30)>>4)+String(data[2]&0x0F);
+
+  String timestamp_hh_mm=tid[2]+tid[1];
+  return timestamp_hh_mm;
+}
+
+
 int counter = 0;
 int curr_time = 0, prev_time = 0;
 char nums [4];
-char clear_nums[4] = {'0','0','0','0'};
+// char clear_nums[4] = {'0','0','0','0'};
+String time_hh_mm;
 void loop() {
   write2screen();
 
-  //simple counter
-  //Converts a 4 digit number into chars 
   if(millis() - prev_time > 1000){
-    counter++;
-    memcpy(&nums, &clear_nums, sizeof(nums));
-    if(counter<10){
-      nums[3] = counter + '0';
-    }else if(counter<100){
-      nums[2] = counter/10 + '0';
-      nums[3] = counter%10 + '0';
-    }else if(counter<1000){
-      nums[1] = counter/100 + '0';
-      nums[2] = (counter%100)/10 + '0';
-      nums[3] = counter%10 + '0';
-    }
+    // memcpy(&nums, &clear_nums, sizeof(nums));
+    time_hh_mm = get_time();
+    time_hh_mm.toCharArray(nums, 5);
     string2matrix(nums);
     display_matrix[1][9] = 1;
     display_matrix[3][9] = 1;
     prev_time = millis();
   }
+
+
+  //simple counter
+  //Converts a 4 digit number into chars 
+  // if(millis() - prev_time > 1000){
+  //   counter++;
+  //   memcpy(&nums, &clear_nums, sizeof(nums));
+  //   if(counter<10){
+  //     nums[3] = counter + '0';
+  //   }else if(counter<100){
+  //     nums[2] = counter/10 + '0';
+  //     nums[3] = counter%10 + '0';
+  //   }else if(counter<1000){
+  //     nums[1] = counter/100 + '0';
+  //     nums[2] = (counter%100)/10 + '0';
+  //     nums[3] = counter%10 + '0';
+  //   }
+  //   string2matrix(nums);
+  //   display_matrix[1][9] = 1;
+  //   display_matrix[3][9] = 1;
+  //   prev_time = millis();
+  // }
 }
