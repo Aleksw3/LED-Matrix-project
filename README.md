@@ -27,3 +27,4 @@ Height: 45.977mm
 ### 74HC164 Shift Register
 
 <img src="Documentation/74hc164_digital_circuit.png">
+.
